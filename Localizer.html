@@ -1,1 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>翻译助手</title>
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --error-color: #d63031;
+            --success-color: #27ae60;
+            --bg-color: #f4f7f6;
+            --line-height: 24px;
+        }
 
+        body { font-family: 'Consolas', 'Monaco', monospace; background-color: var(--bg-color); padding: 20px; margin: 0; }
+        .container { background: white; max-width: 1400px; margin: 0 auto; padding: 25px; border-radius: 12px; box-shadow: 0 5px 25px rgba(0,0,0,0.1); }
+
+        .upload-zone {
+            border: 2px dashed #ccc; padding: 20px; text-align: center; 
+            cursor: pointer; margin-bottom: 20px; border-radius: 8px;
+            transition: 0.3s; color: #666;
+        }
+        .upload-zone:hover { border-color: var(--primary-color); background: #f0f0ff; }
+
+        .editor-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; }
+
+        .editor-wrapper {
+            display: flex; border: 1px solid #ddd; border-radius: 4px; 
+            height: 600px; background: white; overflow: hidden;
+        }
+
+        .line-numbers {
+            width: 60px; flex-shrink: 0; background: #f1f2f6; color: #999;
+            text-align: right; padding: 15px 10px 100px 0;
+            line-height: var(--line-height); font-size: 13px;
+            border-right: 1px solid #ddd; user-select: none;
+            overflow: hidden; box-sizing: border-box;
+        }
+
+        textarea {
+            flex: 1; border: none; outline: none; padding: 15px 10px;
+            line-height: var(--line-height); font-size: 13px;
+            font-family: inherit; resize: none; white-space: pre;
+            overflow: auto; box-sizing: border-box; background: transparent;
+        }
+
+        /* 给原文框加点特殊的背景，暗示它是自动生成的 */
+        #sourceExtracts { background: #fafafa; color: #444; }
+        #translationInput { background: #fffef2; }
+
+        .btn { padding: 5px 12px; cursor: pointer; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; background: #f9f9f9; }
+        .action-bar { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }
+        
+        .btn-main { 
+            padding: 12px 30px; background: var(--primary-color); color: white; border: none; 
+            border-radius: 25px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 0 10px;
+        }
+        .btn-main:disabled { background: #ccc; cursor: not-allowed; }
+
+        .status-msg { margin-top: 10px; display: none; padding: 8px; border-radius: 4px; font-size: 14px; }
+        .error { background: #ffeaea; color: var(--error-color); }
+        .success { background: #eafff5; color: var(--success-color); }
+
+        .info-tag { font-size: 12px; background: #eee; padding: 2px 6px; border-radius: 4px; color: #666; margin-left: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="upload-zone" id="dropZone">
+        <b id="uploadText">第一步：点击此处或拖入 TXT 源码文件</b>
+        <p style="font-size:12px; margin-top:5px; color:#999">支持自动识别换行符并拆分显示</p>
+        <input type="file" id="fileInput" style="display:none" accept=".txt">
+    </div>
+
+    <div class="editor-container">
+        <div class="panel">
+            <div class="panel-header">
+                <div><button class="btn" id="copySource">📋 复制</button><span>识别结果</span></div>
+                <span id="countLeft">0 行</span>
+            </div>
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="leftNums">1</div>
+                <textarea id="sourceExtracts" readonly wrap="off" spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div><button class="btn" id="clearRight">🗑️ 清空</button><span>翻译结果</span></div>
+                <span id="countRight">输入: 0 行</span>
+            </div>
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="rightNums">1</div>
+                <textarea id="translationInput" wrap="off" spellcheck="false" placeholder="在此粘贴翻译 (需严格保持行数一致)"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div id="statusBox" class="status-msg"></div><br>
+        <button id="copyResultBtn" class="btn-main" disabled>📋 复制结果代码</button>
+        <button id="downloadResultBtn" class="btn-main" disabled>💾 下载结果文件</button>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const sourceExtracts = document.getElementById('sourceExtracts');
+    const transArea = document.getElementById('translationInput');
+    const leftNums = document.getElementById('leftNums');
+    const rightNums = document.getElementById('rightNums');
+    const copyResultBtn = document.getElementById('copyResultBtn');
+    const downloadResultBtn = document.getElementById('downloadResultBtn');
+    const statusBox = document.getElementById('statusBox');
+
+    // 全局变量
+    let originalFullText = "";
+    
+    // mappingData 结构: Array<{ seps: string[], lineCount: number }>
+    // 用于记录每个匹配项被拆分成了几行，以及中间的分隔符是什么
+    let mappingData = []; 
+    let totalSplitLines = 0; // 左侧总行数
+
+    // 正则：提取引号内的内容
+    // 注意：JS中 . 不匹配换行符，但源码如果包含实际换行需要考虑，这里主要依赖prompt中的\r文本
+    const masterRegex = /自定义字符串\s*\(\s*"((?:[^"\\]|\\.)*)"/g;
+
+    // 分隔符正则：匹配字面量 \r, \n (双反斜杠) 或者 实际的控制字符 CR, LF
+    // 连续出现的被视为一个整体
+    const separatorRegex = /(\\r|\\n|\r|\n)+/g;
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+    function handleFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            originalFullText = e.target.result;
+            processText(originalFullText);
+            
+            document.getElementById('uploadText').innerText = "✅ 已加载: " + file.name;
+            checkStatus();
+        };
+        reader.readAsText(file);
+    }
+
+    function processText(text) {
+        mappingData = [];
+        let displayLines = [];
+        let match;
+        masterRegex.lastIndex = 0; // 重置正则指针
+        
+        while ((match = masterRegex.exec(text)) !== null) {
+            const rawContent = match[1]; // 获取引号内部的内容
+            
+            // 开始拆解内容
+            const parts = [];
+            const separators = [];
+            let lastIndex = 0;
+            let sepMatch;
+
+            // 局部正则搜索分隔符
+            // 需要创建新的 RegExp 对象或重置 lastIndex，因为是在循环中使用
+            const localSepRegex = new RegExp(separatorRegex);
+            
+            while ((sepMatch = localSepRegex.exec(rawContent)) !== null) {
+                // 截取分隔符前面的文本
+                parts.push(rawContent.substring(lastIndex, sepMatch.index));
+                // 记录分隔符本身 (例如 "\r\n")
+                separators.push(sepMatch[0]);
+                lastIndex = localSepRegex.lastIndex;
+            }
+            // 添加最后剩余的部分
+            parts.push(rawContent.substring(lastIndex));
+
+            // 保存结构数据供还原使用
+            mappingData.push({
+                seps: separators, // 分隔符数组，长度比 parts 少 1
+                lineCount: parts.length // 这个匹配项占用了多少行
+            });
+
+            // 将拆分出的文本添加到显示的列表里
+            // 简单的文本处理：去掉可能的实际换行符以便单行显示（视需求而定，这里不做额外替换以保持原样）
+            displayLines = displayLines.concat(parts);
+        }
+
+        totalSplitLines = displayLines.length;
+        sourceExtracts.value = displayLines.join('\n');
+        
+        document.getElementById('countLeft').innerText = "拆分条目: " + totalSplitLines + " 行";
+        updateLineNumbers(sourceExtracts, leftNums);
+        updateLineNumbers(transArea, rightNums);
+    }
+
+    function updateLineNumbers(ta, numEl) {
+        const lines = ta.value === "" ? 0 : ta.value.split('\n').length;
+        const count = Math.max(lines, 1);
+        let html = "";
+        // 简单优化：如果行数太多，分批渲染防止卡顿（此处Demo暂不需要）
+        for (let i = 1; i <= count; i++) { html += i + "<br>"; }
+        numEl.innerHTML = html;
+        numEl.scrollTop = ta.scrollTop;
+    }
+
+    sourceExtracts.onscroll = function() { leftNums.scrollTop = this.scrollTop; };
+    transArea.onscroll = function() { rightNums.scrollTop = this.scrollTop; };
+    
+    transArea.oninput = () => { 
+        updateLineNumbers(transArea, rightNums); 
+        checkStatus(); 
+    };
+
+    function getValidLines() {
+        if (!transArea.value) return [];
+        let lines = transArea.value.split('\n');
+        // 如果最后一行是空的且总行数比原文多，或者是误回车，可以宽容处理
+        // 但为了严格对应，这里只处理基本空尾行
+        if (lines.length > totalSplitLines && lines[lines.length - 1] === "") {
+            lines.pop();
+        }
+        return lines;
+    }
+
+    function checkStatus() {
+        const currentLines = getValidLines();
+        document.getElementById('countRight').innerText = "输入: " + currentLines.length + " 行";
+        
+        if (totalSplitLines > 0 && currentLines.length === totalSplitLines) {
+            copyResultBtn.disabled = false;
+            downloadResultBtn.disabled = false;
+            showStatus("✅ 完美对齐！翻译条数与拆分原文一致。", "success");
+        } else {
+            copyResultBtn.disabled = true;
+            downloadResultBtn.disabled = true;
+            if (currentLines.length > 0) {
+                const diff = currentLines.length - totalSplitLines;
+                const word = diff > 0 ? "多" : "少";
+                showStatus(`❌ 数量不符：需 ${totalSplitLines} 行，当前 ${currentLines.length} 行 (${word}了 ${Math.abs(diff)} 行)`, "error");
+            } else {
+                statusBox.style.display = "none";
+            }
+        }
+    }
+
+    function showStatus(msg, type) {
+        statusBox.innerText = msg;
+        statusBox.className = "status-msg " + type;
+        statusBox.style.display = "inline-block";
+    }
+
+    document.getElementById('copySource').onclick = () => {
+        sourceExtracts.select();
+        document.execCommand('copy');
+    };
+
+    document.getElementById('clearRight').onclick = () => {
+        transArea.value = "";
+        updateLineNumbers(transArea, rightNums);
+        checkStatus();
+    };
+
+    // 核心逻辑：还原并生成结果
+    function generateResult() {
+        const userTranslations = getValidLines(); // 获取所有翻译行 [T1, T2, T3...]
+        let translationLinePointer = 0; // 全局翻译行指针
+        let matchIndex = 0; // 对应 mappingData 的索引
+
+        masterRegex.lastIndex = 0;
+        
+        // 重新扫描原文本进行替换
+        return originalFullText.replace(masterRegex, (match, p1) => {
+            const data = mappingData[matchIndex];
+            
+            // 如果数据错乱（极低概率），直接返回原文
+            if (!data) return match; 
+            
+            matchIndex++;
+
+            let reconstructedStr = "";
+            const seps = data.seps;
+            const linesNeeded = data.lineCount;
+
+            // 拼接逻辑： Line1 + Sep1 + Line2 + Sep2 + Line3
+            for (let i = 0; i < linesNeeded; i++) {
+                // 取出一行翻译
+                const lineContent = userTranslations[translationLinePointer++] || "";
+                
+                reconstructedStr += lineContent;
+                
+                // 如果还有分隔符（比如2行需要1个分隔符，3行需要2个），则追加
+                if (i < seps.length) {
+                    reconstructedStr += seps[i];
+                }
+            }
+
+            // 获取前缀（如 '自定义字符串("') 并拼接新内容
+            const firstQuoteIndex = match.indexOf('"');
+            const prefix = match.substring(0, firstQuoteIndex + 1); 
+            
+            return prefix + reconstructedStr + '"';
+        });
+    }
+
+    downloadResultBtn.onclick = () => {
+        const result = generateResult();
+        const blob = new Blob([result], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = "translated_output_fixed.txt";
+        a.click();
+    };
+
+    copyResultBtn.onclick = () => {
+        const result = generateResult();
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = result;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        try {
+            document.execCommand('copy');
+            alert("✅ 处理后的完整代码已复制！");
+        } catch (err) {
+            alert("❌ 复制失败，请尝试下载文件。");
+        }
+        document.body.removeChild(tempTextarea);
+    };
+</script>
+</body>
+</html>
