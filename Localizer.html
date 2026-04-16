@@ -1,1 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>翻译助手</title>
+    <style>
+        :root {
+            --primary-color: #6c5ce7;
+            --error-color: #d63031;
+            --success-color: #27ae60;
+            --bg-color: #f4f7f6;
+            --line-height: 24px;
+        }
 
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: var(--bg-color);
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.1);
+        }
+
+        .upload-zone {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            transition: 0.3s;
+            color: #666;
+        }
+        .upload-zone:hover {
+            border-color: var(--primary-color);
+            background: #f0f0ff;
+        }
+
+        .editor-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .editor-wrapper {
+            display: flex;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            height: 600px;
+            background: white;
+            overflow: hidden;
+        }
+
+        .line-numbers {
+            width: 60px;
+            flex-shrink: 0;
+            background: #f1f2f6;
+            color: #999;
+            text-align: right;
+            padding: 15px 10px 100px 0;
+            line-height: var(--line-height);
+            font-size: 13px;
+            border-right: 1px solid #ddd;
+            user-select: none;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 15px 10px;
+            line-height: var(--line-height);
+            font-size: 13px;
+            font-family: inherit;
+            resize: none;
+            white-space: pre;
+            overflow: auto;
+            box-sizing: border-box;
+            background: transparent;
+        }
+
+        #sourceText { background: #ffffff; }
+        #sourceExtracts { background: #fafafa; color: #444; }
+        #translationInput { background: #fffef2; }
+
+        .btn {
+            padding: 5px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            font-size: 12px;
+            background: #f9f9f9;
+        }
+
+        .action-bar {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .btn-main {
+            padding: 12px 30px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 0 10px;
+        }
+        .btn-main:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status-msg {
+            margin-top: 10px;
+            display: none;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .error {
+            background: #ffeaea;
+            color: var(--error-color);
+        }
+        .success {
+            background: #eafff5;
+            color: var(--success-color);
+        }
+
+        .info-tag {
+            font-size: 12px;
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #666;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="upload-zone" id="dropZone">
+        <b id="uploadText">📁 点击此处或拖入 TXT 源码文件</b>
+        <p style="font-size:12px; margin-top:5px; color:#999">
+            文件内容将填入左侧编辑区，也可直接粘贴或修改
+        </p>
+        <input type="file" id="fileInput" style="display:none" accept=".txt">
+    </div>
+
+    <div class="editor-container">
+        <!-- 左侧：原始文本编辑区 -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <button class="btn" id="clearSourceBtn">🗑️ 清空</button>
+                    <span>📄 原始文本</span>
+                </div>
+                <span id="countLeftSource">0 行</span>
+            </div>
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="sourceLineNums">1</div>
+                <textarea id="sourceText" wrap="off" spellcheck="false" placeholder="粘贴或修改源码……"></textarea>
+            </div>
+        </div>
+
+        <!-- 中间：识别结果（只读） -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <button class="btn" id="copySourceBtn">📋 复制</button>
+                    <span>🔍 识别结果</span>
+                </div>
+                <span id="countExtracts">拆分条目: 0 行</span>
+            </div>
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="extractsLineNums">1</div>
+                <textarea id="sourceExtracts" readonly wrap="off" spellcheck="false"></textarea>
+            </div>
+        </div>
+
+        <!-- 右侧：翻译输入区 -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <button class="btn" id="clearTransBtn">🗑️ 清空</button>
+                    <span>🌐 翻译结果</span>
+                </div>
+                <span id="countTrans">输入: 0 行</span>
+            </div>
+            <div class="editor-wrapper">
+                <div class="line-numbers" id="transLineNums">1</div>
+                <textarea id="translationInput" wrap="off" spellcheck="false" placeholder="在此粘贴翻译 (需严格保持行数一致)"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <div id="statusBox" class="status-msg"></div><br>
+        <button id="copyResultBtn" class="btn-main" disabled>📋 复制结果代码</button>
+        <button id="downloadResultBtn" class="btn-main" disabled>💾 下载结果文件</button>
+    </div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const uploadText = document.getElementById('uploadText');
+
+        const sourceTextArea = document.getElementById('sourceText');
+        const extractsTextArea = document.getElementById('sourceExtracts');
+        const transTextArea = document.getElementById('translationInput');
+
+        const sourceLineNums = document.getElementById('sourceLineNums');
+        const extractsLineNums = document.getElementById('extractsLineNums');
+        const transLineNums = document.getElementById('transLineNums');
+
+        const countLeftSource = document.getElementById('countLeftSource');
+        const countExtracts = document.getElementById('countExtracts');
+        const countTrans = document.getElementById('countTrans');
+
+        const clearSourceBtn = document.getElementById('clearSourceBtn');
+        const copySourceBtn = document.getElementById('copySourceBtn');
+        const clearTransBtn = document.getElementById('clearTransBtn');
+        const copyResultBtn = document.getElementById('copyResultBtn');
+        const downloadResultBtn = document.getElementById('downloadResultBtn');
+        const statusBox = document.getElementById('statusBox');
+
+        let mappingData = [];
+        let totalSplitLines = 0;
+
+        const masterRegex = /自定义字符串\s*\(\s*"((?:[^"\\]|\\.)*)"/g;
+        const separatorRegex = /(\\r|\\n|\r|\n)+/g;
+
+        function updateLineNumbers(textarea, lineNumContainer) {
+            const lines = textarea.value === "" ? 0 : textarea.value.split('\n').length;
+            const count = Math.max(lines, 1);
+            let html = "";
+            for (let i = 1; i <= count; i++) html += i + "<br>";
+            lineNumContainer.innerHTML = html;
+            lineNumContainer.scrollTop = textarea.scrollTop;
+        }
+
+        function syncScroll(source, targetLineNum) {
+            targetLineNum.scrollTop = source.scrollTop;
+        }
+
+        sourceTextArea.addEventListener('scroll', () => syncScroll(sourceTextArea, sourceLineNums));
+        extractsTextArea.addEventListener('scroll', () => syncScroll(extractsTextArea, extractsLineNums));
+        transTextArea.addEventListener('scroll', () => syncScroll(transTextArea, transLineNums));
+
+        function updateAllLineNumbers() {
+            updateLineNumbers(sourceTextArea, sourceLineNums);
+            updateLineNumbers(extractsTextArea, extractsLineNums);
+            updateLineNumbers(transTextArea, transLineNums);
+            const sourceLines = sourceTextArea.value.split('\n').length;
+            countLeftSource.textContent = `${sourceLines} 行`;
+        }
+
+        function processSourceText(text) {
+            mappingData = [];
+            const displayLines = [];
+            masterRegex.lastIndex = 0;
+            let match;
+            while ((match = masterRegex.exec(text)) !== null) {
+                const rawContent = match[1];
+                const parts = [];
+                const separators = [];
+                let lastIndex = 0;
+                const localSepRegex = new RegExp(separatorRegex);
+                let sepMatch;
+                while ((sepMatch = localSepRegex.exec(rawContent)) !== null) {
+                    parts.push(rawContent.substring(lastIndex, sepMatch.index));
+                    separators.push(sepMatch[0]);
+                    lastIndex = localSepRegex.lastIndex;
+                }
+                parts.push(rawContent.substring(lastIndex));
+                mappingData.push({
+                    seps: separators,
+                    lineCount: parts.length
+                });
+                displayLines.push(...parts);
+            }
+            totalSplitLines = displayLines.length;
+            extractsTextArea.value = displayLines.join('\n');
+            countExtracts.textContent = `拆分条目: ${totalSplitLines} 行`;
+            updateLineNumbers(extractsTextArea, extractsLineNums);
+        }
+
+        function onSourceTextChanged() {
+            processSourceText(sourceTextArea.value);
+            updateAllLineNumbers();
+            checkStatus();
+        }
+
+        function onTranslationChanged() {
+            updateLineNumbers(transTextArea, transLineNums);
+            checkStatus();
+        }
+
+        function getValidTranslationLines() {
+            let lines = transTextArea.value.split('\n');
+            if (lines.length > totalSplitLines && lines[lines.length - 1] === '') {
+                lines.pop();
+            }
+            return lines;
+        }
+
+        function checkStatus() {
+            const transLines = getValidTranslationLines();
+            countTrans.textContent = `输入: ${transLines.length} 行`;
+
+            // 核心优化：只有翻译框有实际输入时才显示状态提示
+            const hasTranslationInput = transTextArea.value.trim().length > 0;
+            
+            if (!hasTranslationInput) {
+                // 无输入：隐藏状态栏，禁用结果按钮
+                statusBox.style.display = 'none';
+                copyResultBtn.disabled = true;
+                downloadResultBtn.disabled = true;
+                return;
+            }
+
+            if (totalSplitLines === 0) {
+                copyResultBtn.disabled = true;
+                downloadResultBtn.disabled = true;
+                statusBox.style.display = 'none';
+                return;
+            }
+
+            if (transLines.length === totalSplitLines) {
+                copyResultBtn.disabled = false;
+                downloadResultBtn.disabled = false;
+                showStatus('✅ 数量对齐！', 'success');
+            } else {
+                copyResultBtn.disabled = true;
+                downloadResultBtn.disabled = true;
+                const diff = transLines.length - totalSplitLines;
+                const word = diff > 0 ? '多' : '少';
+                showStatus(`❌ 数量不符：需 ${totalSplitLines} 行，当前 ${transLines.length} 行 (${word}了 ${Math.abs(diff)} 行)`, 'error');
+            }
+        }
+
+        function showStatus(msg, type) {
+            statusBox.textContent = msg;
+            statusBox.className = `status-msg ${type}`;
+            statusBox.style.display = 'inline-block';
+        }
+
+        function generateResult() {
+            const userTranslations = getValidTranslationLines();
+            const sourceText = sourceTextArea.value;
+            let translationPointer = 0;
+            let matchIndex = 0;
+            masterRegex.lastIndex = 0;
+            return sourceText.replace(masterRegex, (match) => {
+                const data = mappingData[matchIndex];
+                matchIndex++;
+                if (!data) return match;
+                const seps = data.seps;
+                const linesNeeded = data.lineCount;
+                let reconstructed = '';
+                for (let i = 0; i < linesNeeded; i++) {
+                    reconstructed += (userTranslations[translationPointer] || '');
+                    translationPointer++;
+                    if (i < seps.length) {
+                        reconstructed += seps[i];
+                    }
+                }
+                const firstQuoteIndex = match.indexOf('"');
+                const prefix = match.substring(0, firstQuoteIndex + 1);
+                return prefix + reconstructed + '"';
+            });
+        }
+
+        function handleFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                sourceTextArea.value = e.target.result;
+                uploadText.textContent = `✅ 已加载: ${file.name}`;
+                onSourceTextChanged();
+            };
+            reader.readAsText(file);
+        }
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleFile(file);
+            fileInput.value = '';
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--primary-color)';
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ccc';
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.txt')) {
+                handleFile(file);
+            } else {
+                alert('请拖入 .txt 文件');
+            }
+        });
+
+        sourceTextArea.addEventListener('input', onSourceTextChanged);
+        transTextArea.addEventListener('input', onTranslationChanged);
+
+        clearSourceBtn.addEventListener('click', () => {
+            sourceTextArea.value = '';
+            onSourceTextChanged();
+            uploadText.textContent = '📁 点击此处或拖入 TXT 源码文件';
+        });
+
+        copySourceBtn.addEventListener('click', () => {
+            extractsTextArea.select();
+            document.execCommand('copy');
+        });
+
+        clearTransBtn.addEventListener('click', () => {
+            transTextArea.value = '';
+            onTranslationChanged();
+        });
+
+        copyResultBtn.addEventListener('click', () => {
+            const result = generateResult();
+            const temp = document.createElement('textarea');
+            temp.value = result;
+            document.body.appendChild(temp);
+            temp.select();
+            try {
+                document.execCommand('copy');
+                alert('✅ 处理后的完整代码已复制！');
+            } catch (err) {
+                alert('❌ 复制失败，请尝试下载文件。');
+            }
+            document.body.removeChild(temp);
+        });
+
+        downloadResultBtn.addEventListener('click', () => {
+            const result = generateResult();
+            const blob = new Blob([result], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'translated_output.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        updateAllLineNumbers();
+        checkStatus();
+    })();
+</script>
+</body>
+</html>
