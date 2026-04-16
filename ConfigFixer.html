@@ -171,7 +171,7 @@
     
     <div class="upload-section" onclick="document.getElementById('fileInput').click()">
         <span style="font-size: 1.8rem;">📄</span>
-        <p id="uploadLabel" style="margin: 8px 0 0; font-weight: 500;">点击或拖拽 TXT 文本文件导入</p>
+        <p id="uploadLabel" style="margin: 8px 0 0; font-weight: 500;">点击导入 TXT 文本文件或直接粘贴至下方编辑框</p>
         <input type="file" id="fileInput" accept=".txt" style="display:none">
     </div>
 
@@ -188,11 +188,11 @@
 
     <div class="editor-wrapper">
         <div class="line-numbers" id="lineNums">1</div>
-        <textarea id="output" placeholder="等待导入文件或粘贴内容……" wrap="off" spellcheck="false"></textarea>
+        <textarea id="output" placeholder="在此粘贴文本内容，或通过上方上传文件……" wrap="off" spellcheck="false"></textarea>
     </div>
 
     <div class="status-bar">
-        <span id="fileStatus">📂 等待导入...</span>
+        <span id="fileStatus">📂 等待内容...</span>
         <span id="statDetails">📍 行: 1, 列: 1</span>
     </div>
 </div>
@@ -216,13 +216,33 @@
         const statDetails = document.getElementById('statDetails');
         const fileStatusSpan = document.getElementById('fileStatus');
 
+        // 所有功能按钮数组
+        const actionButtons = [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn];
+        
         let originalFileName = "ow_settings.txt";
 
+        // ---------- 根据编辑框内容启用/禁用按钮 ----------
+        function updateButtonsState() {
+            const hasContent = output.value.trim().length > 0;
+            actionButtons.forEach(btn => btn.disabled = !hasContent);
+            
+            // 状态栏提示更新
+            if (hasContent) {
+                if (originalFileName !== "ow_settings.txt" && fileStatusSpan.innerText.includes('已导入')) {
+                    // 保持文件导入状态不变
+                } else {
+                    fileStatusSpan.innerText = '📝 已粘贴内容';
+                }
+            } else {
+                fileStatusSpan.innerText = '📂 等待内容...';
+                originalFileName = "ow_settings.txt";
+            }
+        }
+
         // ---------- 改进的按钮反馈（带定时器清理） ----------
-        const feedbackTimeouts = new Map(); // 为每个按钮存储 timeoutId
+        const feedbackTimeouts = new Map();
 
         function setBtnFeedback(btn, feedbackText) {
-            // 清除该按钮之前的定时器
             if (feedbackTimeouts.has(btn)) {
                 clearTimeout(feedbackTimeouts.get(btn));
                 feedbackTimeouts.delete(btn);
@@ -249,7 +269,13 @@
         }
 
         output.onscroll = function() { lineNums.scrollTop = this.scrollTop; };
-        output.oninput = () => { updateLineNumbers(); updateCursorInfo(); };
+        
+        // 核心：监听输入事件，更新行号、光标位置，并控制按钮状态
+        output.oninput = () => { 
+            updateLineNumbers(); 
+            updateCursorInfo(); 
+            updateButtonsState();   // 关键：粘贴或输入时启用按钮
+        };
 
         // ---------- 文件导入 ----------
         fileInput.addEventListener('change', function(e) {
@@ -261,7 +287,7 @@
                 output.value = ev.target.result; 
                 updateLineNumbers();
                 fileStatusSpan.innerText = `📄 已导入: ${file.name}`;
-                [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn].forEach(b => b.disabled = false);
+                updateButtonsState(); // 上传后确保按钮启用
             };
             reader.readAsText(file);
         });
@@ -275,13 +301,13 @@
             uploadZone.style.borderColor = '#ccc';
             const file = e.dataTransfer.files[0];
             if (file && file.name.endsWith('.txt')) {
+                originalFileName = file.name;
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     output.value = ev.target.result;
                     updateLineNumbers();
-                    originalFileName = file.name;
                     fileStatusSpan.innerText = `📄 已导入: ${file.name}`;
-                    [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn].forEach(b => b.disabled = false);
+                    updateButtonsState();
                 };
                 reader.readAsText(file);
             } else {
@@ -416,7 +442,7 @@
             setBtnFeedback(processBtn, "✅ " + msg);
         };
 
-        // ========== Excel 自定义规则（修复定时器冲突） ==========
+        // ========== Excel 自定义规则 ==========
         customRuleBtn.onclick = () => { 
             excelInput.value = ""; 
             excelInput.click(); 
@@ -426,7 +452,6 @@
             const file = e.target.files[0];
             if (!file) return;
             
-            // 显示处理中状态
             setBtnFeedback(customRuleBtn, "⏳ 处理中...");
             
             const reader = new FileReader();
@@ -457,18 +482,16 @@
                     
                     output.value = text;
                     updateLineNumbers();
-                    
-                    // 成功提示
                     setBtnFeedback(customRuleBtn, `📋 应用 ${count} 条规则`);
                 } catch (err) {
                     console.error("Excel处理错误:", err);
-                    alert("Excel 处理出错，请检查文件格式或控制台日志");
+                    alert("Excel 处理出错，请检查文件格式");
                     setBtnFeedback(customRuleBtn, "❌ 处理失败");
                 }
             };
             
             reader.onerror = function() {
-                alert("文件读取失败，请检查文件是否损坏");
+                alert("文件读取失败");
                 setBtnFeedback(customRuleBtn, "❌ 读取失败");
             };
             
@@ -552,8 +575,9 @@
             statDetails.innerText = `📍 行: ${l.length}, 列: ${l[l.length-1].length + 1}`; 
         }
 
-        // 初始化行号
+        // 初始化：根据初始内容（可能为空）设置按钮状态
         updateLineNumbers();
+        updateButtonsState();
     })();
 </script>
 </body>
