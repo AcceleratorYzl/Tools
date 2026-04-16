@@ -4,376 +4,557 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文档处理器</title>
-    <!-- 引入 SheetJS 用于 Excel 功能 -->
+    <!-- SheetJS 库用于 Excel 功能 -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         :root {
-            --primary-color: #4a90e2; --primary-hover: #357abd;
-            --success-color: #27ae60; --success-hover: #219150;
-            --danger-color: #e74c3c; --warning-color: #f39c12;
-            --custom-color: #00b894; --bg-color: #f0f2f5;
-            --card-bg: #ffffff; --text-main: #2c3e50; --text-muted: #7f8c8d;
-            --editor-font: 13px/22px 'Consolas', 'Monaco', monospace;
+            --primary-color: #6c5ce7;
+            --primary-hover: #5b4bc4;
+            --success-color: #27ae60;
+            --success-hover: #219150;
+            --danger-color: #e74c3c;
+            --warning-color: #f39c12;
+            --custom-color: #00b894;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-main: #2c3e50;
+            --text-muted: #7f8c8d;
+            --line-height: 24px;
         }
 
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-color); margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .card { background: var(--card-bg); padding: 2rem; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 95%; max-width: 1100px; }
-        h2 { text-align: center; margin-top: 0; margin-bottom: 0.5rem; color: var(--text-main); }
-        .subtitle { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; }
-        .upload-section { border: 2px dashed #cbd5e0; padding: 1.5rem; text-align: center; border-radius: 12px; cursor: pointer; background: #fafbfc; transition: all 0.3s ease; margin-bottom: 1rem; }
-        .upload-section:hover { border-color: var(--primary-color); background: #f1f7ff; }
-        .controls { display: flex; gap: 10px; margin-bottom: 1rem; justify-content: center; flex-wrap: wrap; }
-        button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; color: white; font-size: 13px; min-width: 100px; }
-        .btn-process { background: #8e44ad; } 
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.08);
+            width: 95%;
+            max-width: 1200px;
+        }
+
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 1.5rem;
+            text-align: center;
+            border-radius: 12px;
+            cursor: pointer;
+            background: #fafbfc;
+            transition: all 0.3s ease;
+            margin-bottom: 1.2rem;
+        }
+
+        .upload-section:hover {
+            border-color: var(--primary-color);
+            background: #f0f0ff;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            color: white;
+            font-size: 13px;
+            min-width: 100px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .btn-process { background: #8e44ad; }
+        .btn-process:hover { background: #732d91; }
         .btn-danger { background: var(--danger-color); }
+        .btn-danger:hover { background: #c0392b; }
         .btn-warning { background: var(--warning-color); }
-        .btn-custom { background: var(--custom-color); } 
+        .btn-warning:hover { background: #e67e22; }
+        .btn-custom { background: var(--custom-color); }
+        .btn-custom:hover { background: #00997a; }
         .btn-copy { background: var(--primary-color); }
+        .btn-copy:hover { background: var(--primary-hover); }
         .btn-download { background: var(--success-color); }
-        button:disabled { background: #e2e8f0; color: #a0aec0; cursor: not-allowed; }
-        .editor-wrapper { display: flex; border: 1px solid #ddd; border-radius: 8px; height: 550px; background: #2d3436; overflow: hidden; position: relative; }
-        .line-numbers { width: 65px; flex-shrink: 0; background: #23292a; color: #636d83; text-align: right; padding: 15px 10px 100px 0; font: var(--editor-font); border-right: 1px solid #3e4451; user-select: none; overflow: hidden; box-sizing: border-box; }
-        textarea { flex: 1; border: none; outline: none; padding: 15px 10px; font: var(--editor-font); background: transparent; color: #dfe6e9; resize: none; white-space: pre; overflow: auto; box-sizing: border-box; tab-size: 4; }
-        .status-bar { margin-top: 15px; font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between; }
+        .btn-download:hover { background: var(--success-hover); }
+
+        button:disabled {
+            background: #e2e8f0;
+            color: #a0aec0;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .editor-wrapper {
+            display: flex;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            height: 550px;
+            background: white;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .line-numbers {
+            width: 65px;
+            flex-shrink: 0;
+            background: #f1f2f6;
+            color: #999;
+            text-align: right;
+            padding: 15px 10px 100px 0;
+            font: 13px/var(--line-height) 'Consolas', 'Monaco', monospace;
+            border-right: 1px solid #ddd;
+            user-select: none;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 15px 10px;
+            font: 13px/var(--line-height) 'Consolas', 'Monaco', monospace;
+            background: transparent;
+            color: #2c3e50;
+            resize: none;
+            white-space: pre;
+            overflow: auto;
+            box-sizing: border-box;
+            tab-size: 4;
+        }
+
+        .status-bar {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>自动处理报错</h2>
-    <p class="subtitle">处理中文复制报错 | 支持导入excl自定义规则</p>
+    <h2>⚙️ 自动处理报错</h2>
+    <p class="subtitle">处理中文复制报错 | 支持导入 Excel 自定义规则</p>
     
     <div class="upload-section" onclick="document.getElementById('fileInput').click()">
-        <span style="font-size: 1.5rem;">📄</span>
-        <p id="uploadLabel" style="margin: 8px 0 0;">点击或拖拽 TXT 文本文件导入</p>
+        <span style="font-size: 1.8rem;">📄</span>
+        <p id="uploadLabel" style="margin: 8px 0 0; font-weight: 500;">点击或拖拽 TXT 文本文件导入</p>
         <input type="file" id="fileInput" accept=".txt" style="display:none">
     </div>
 
     <input type="file" id="excelInput" accept=".xlsx, .xls" style="display:none">
 
     <div class="controls">
-        <button id="processBtn" class="btn-process" disabled>查找替换</button>
-        <button id="delLobbyBtn" class="btn-danger" disabled>删除大厅</button>
-        <button id="resetModeBtn" class="btn-warning" disabled>重置模式</button>
-        <button id="customRuleBtn" class="btn-custom" disabled>自定规则(Excel)</button>
-        <button id="copyBtn" class="btn-copy" disabled>复制结果</button>
-        <button id="downloadBtn" class="btn-download" disabled>下载TXT</button>
+        <button id="processBtn" class="btn-process" disabled>🔍 查找替换</button>
+        <button id="delLobbyBtn" class="btn-danger" disabled>🗑️ 删除大厅</button>
+        <button id="resetModeBtn" class="btn-warning" disabled>🔄 重置模式</button>
+        <button id="customRuleBtn" class="btn-custom" disabled>📊 自定规则(Excel)</button>
+        <button id="copyBtn" class="btn-copy" disabled>📋 复制结果</button>
+        <button id="downloadBtn" class="btn-download" disabled>💾 下载TXT</button>
     </div>
 
     <div class="editor-wrapper">
         <div class="line-numbers" id="lineNums">1</div>
-        <textarea id="output" placeholder="等待操作..." wrap="off" spellcheck="false"></textarea>
+        <textarea id="output" placeholder="等待导入文件或粘贴内容……" wrap="off" spellcheck="false"></textarea>
     </div>
 
     <div class="status-bar">
-        <span id="fileStatus">等待导入...</span>
-        <span id="statDetails">行: 1, 列: 1</span>
+        <span id="fileStatus">📂 等待导入...</span>
+        <span id="statDetails">📍 行: 1, 列: 1</span>
     </div>
 </div>
 
 <script>
-    const fileInput = document.getElementById('fileInput');
-    const excelInput = document.getElementById('excelInput');
-    const output = document.getElementById('output');
-    const lineNums = document.getElementById('lineNums');
-    
-    const processBtn = document.getElementById('processBtn');
-    const delLobbyBtn = document.getElementById('delLobbyBtn');
-    const resetModeBtn = document.getElementById('resetModeBtn');
-    const customRuleBtn = document.getElementById('customRuleBtn');
-    const copyBtn = document.getElementById('copyBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const statDetails = document.getElementById('statDetails');
+    (function(){
+        "use strict";
 
-    let originalFileName = "ow_settings.txt";
+        // DOM 元素
+        const fileInput = document.getElementById('fileInput');
+        const excelInput = document.getElementById('excelInput');
+        const output = document.getElementById('output');
+        const lineNums = document.getElementById('lineNums');
+        
+        const processBtn = document.getElementById('processBtn');
+        const delLobbyBtn = document.getElementById('delLobbyBtn');
+        const resetModeBtn = document.getElementById('resetModeBtn');
+        const customRuleBtn = document.getElementById('customRuleBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statDetails = document.getElementById('statDetails');
+        const fileStatusSpan = document.getElementById('fileStatus');
 
-    function setBtnFeedback(btn, feedbackText) {
-        const originalText = btn.innerText;
-        btn.innerText = feedbackText;
-        setTimeout(() => { btn.innerText = originalText; }, 2000);
-    }
+        let originalFileName = "ow_settings.txt";
 
-    function updateLineNumbers() {
-        const lines = output.value.split('\n');
-        let html = "";
-        for (let i = 1; i <= Math.max(lines.length, 1); i++) { html += i + "<br>"; }
-        lineNums.innerHTML = html;
-        lineNums.scrollTop = output.scrollTop;
-    }
+        // ---------- 改进的按钮反馈（带定时器清理） ----------
+        const feedbackTimeouts = new Map(); // 为每个按钮存储 timeoutId
 
-    output.onscroll = function() { lineNums.scrollTop = this.scrollTop; };
-    output.oninput = () => { updateLineNumbers(); updateCursorInfo(); };
-
-    fileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        originalFileName = file.name;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            output.value = ev.target.result; 
-            updateLineNumbers();
-            document.getElementById('fileStatus').innerText = `已导入: ${file.name}`;
-            [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn].forEach(b => b.disabled = false);
-        };
-        reader.readAsText(file);
-    });
-
-    // ============================================
-    //       【核心】查找替换与智能删除逻辑
-    // ============================================
-    processBtn.onclick = () => {
-        let fullText = output.value;
-        let deletedModesCount = 0;
-
-        // --- STEP 1: 处理 “禁用 模式” ---
-        // 思路：找到 “模式 {...}”，然后只遍历它的直接子项
-
-        const modeRegex = /(^|[\r\n])\s*模式\s*\{/; // 匹配 "模式 {"
-        const modeMatch = fullText.match(modeRegex);
-
-        if (modeMatch) {
-            // 1. 定位模式大括号位置
-            // modeMatch[0] 可能包含前面的换行，要仔细定位 '{'
-            const modeStartAbsoluteIndex = modeMatch.index;
-            const braceOffset = modeMatch[0].lastIndexOf('{');
-            const modeOpenBraceIndex = modeStartAbsoluteIndex + braceOffset;
-
-            // 2. 找到对应的结束 '}'
-            let balance = 1;
-            let modeCloseBraceIndex = -1;
-            for (let i = modeOpenBraceIndex + 1; i < fullText.length; i++) {
-                if (fullText[i] === '{') balance++;
-                else if (fullText[i] === '}') balance--;
-                if (balance === 0) { modeCloseBraceIndex = i; break; }
+        function setBtnFeedback(btn, feedbackText) {
+            // 清除该按钮之前的定时器
+            if (feedbackTimeouts.has(btn)) {
+                clearTimeout(feedbackTimeouts.get(btn));
+                feedbackTimeouts.delete(btn);
             }
 
-            if (modeCloseBraceIndex !== -1) {
-                // 3. 提取 Body，准备重组
-                // textBefore: "模式 {" 及其之前所有内容
-                // textAfter: "}" 及其之后所有内容
-                // bodyText: 仅包含 "模式" 内部的内容 (不含首尾大括号)
-                const textBefore = fullText.substring(0, modeOpenBraceIndex + 1);
-                const textAfter = fullText.substring(modeCloseBraceIndex);
-                let bodyText = fullText.substring(modeOpenBraceIndex + 1, modeCloseBraceIndex);
-                
-                // 我们构建一个新的 body 字符串
-                let newBodyText = "";
-                let ptr = 0;
+            const originalText = btn.innerText;
+            btn.innerText = feedbackText;
 
-                // 4. 遍历 Body，逐个识别“直接子模块”
-                while (ptr < bodyText.length) {
-                    // 找到下一个 '{'
-                    const nextOpen = bodyText.indexOf('{', ptr);
-                    
-                    if (nextOpen === -1) {
-                        // 后面没有模块了，剩下的都是纯文本(属性/空白)
-                        newBodyText += bodyText.substring(ptr);
-                        break;
-                    }
+            const timeoutId = setTimeout(() => {
+                btn.innerText = originalText;
+                feedbackTimeouts.delete(btn);
+            }, 2000);
 
-                    // 4.1 确定这个子模块的范围 (Sub Block)
-                    let subBalance = 1;
-                    let nextClose = -1;
-                    for (let j = nextOpen + 1; j < bodyText.length; j++) {
-                        if (bodyText[j] === '{') subBalance++;
-                        else if (bodyText[j] === '}') subBalance--;
-                        if (subBalance === 0) { nextClose = j; break; }
-                    }
+            feedbackTimeouts.set(btn, timeoutId);
+        }
 
-                    if (nextClose === -1) {
-                        // 子模块语法坏了(少个右括号)，为安全起见，保留剩余并终止
-                        newBodyText += bodyText.substring(ptr);
-                        break;
-                    }
+        // ---------- 更新行号 ----------
+        function updateLineNumbers() {
+            const lines = output.value.split('\n');
+            let html = "";
+            for (let i = 1; i <= Math.max(lines.length, 1); i++) { html += i + "<br>"; }
+            lineNums.innerHTML = html;
+            lineNums.scrollTop = output.scrollTop;
+        }
 
-                    // 4.2 判断头部: 从 ptr 到 nextOpen 这一段就是这个模块的前缀（包含名称、可能的换行/空白）
-                    // 我们需要从 nextOpen 往回看，直到上一行的结束，或者仅仅根据“字符串里有没有'禁用 '”
-                    // 
-                    // 更精准的方法：
-                    // 提取 "blockLabel"。它是 nextOpen 前面紧邻的非空字符串。
-                    // 但是根据你的需求：“如果模块名称前面有禁用+空格 就删除”
-                    
-                    // 获取从上一次结束位置(ptr)到当前大括号(nextOpen)之间的文本
-                    // 例如："\n\t\t禁用 攻防阵线\n\t\t"
-                    const preamble = bodyText.substring(ptr, nextOpen);
-                    
-                    // 我们只关心紧挨着 '{' 的这一行/这段标签。
-                    // 将 preamble 进行 trim，得到标签名。如 "禁用 攻防阵线"
-                    const trimmedLabel = preamble.trim();
+        output.onscroll = function() { lineNums.scrollTop = this.scrollTop; };
+        output.oninput = () => { updateLineNumbers(); updateCursorInfo(); };
 
-                    // 规则检查：以 "禁用" 开头，且必须跟空白 (防止删掉 '禁用地图')
-                    // 并且不能只是 '禁用' (不过一般后面会有模式名)
-                    const shouldDelete = /^禁用\s+.+/.test(trimmedLabel);
+        // ---------- 文件导入 ----------
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            originalFileName = file.name;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                output.value = ev.target.result; 
+                updateLineNumbers();
+                fileStatusSpan.innerText = `📄 已导入: ${file.name}`;
+                [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn].forEach(b => b.disabled = false);
+            };
+            reader.readAsText(file);
+        });
 
-                    if (shouldDelete) {
-                        // 删除操作：不把这个 preamble 和 subBlock 添加到 newBodyText
-                        // 但是要注意：preamble 包含了前面的换行符，如果直接丢弃，可能会影响紧凑度。
-                        // 为了美观，我们应该只保留 ptr 到 preamble 开始之前的那部分通用格式吗？
-                        // 简化处理：既然删了，就连带前面的缩进换行一起删，OW会自动格式化。
-                        deletedModesCount++;
-                        // ptr 跳过整个子模块 (移动到 '}' 后面)
-                        ptr = nextClose + 1;
-                    } else {
-                        // 保留操作
-                        // 1. 加入前导文本 (名称、换行等)
-                        newBodyText += preamble;
-                        // 2. 加入模块体 (从 '{' 到 '}')
-                        // 注意：bodyText 的 [nextOpen ... nextClose] 部分就是 Block (含括号? 
-                        // 不，上面 preamble 取的是 substring(ptr, nextOpen)，没含 '{'
-                        // 所以我们要加上 '{' ... content ... '}'
-                        
-                        // 正确做法：直接截取 substring(nextOpen, nextClose + 1)
-                        newBodyText += bodyText.substring(nextOpen, nextClose + 1);
-                        
-                        // ptr 移动
-                        ptr = nextClose + 1;
-                    }
+        // 拖拽支持
+        const uploadZone = document.querySelector('.upload-section');
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'var(--primary-color)'; });
+        uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = '#ccc'; });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = '#ccc';
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.txt')) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    output.value = ev.target.result;
+                    updateLineNumbers();
+                    originalFileName = file.name;
+                    fileStatusSpan.innerText = `📄 已导入: ${file.name}`;
+                    [processBtn, delLobbyBtn, resetModeBtn, customRuleBtn, copyBtn, downloadBtn].forEach(b => b.disabled = false);
+                };
+                reader.readAsText(file);
+            } else {
+                alert('请拖入 .txt 文件');
+            }
+        });
+
+        // ========== 核心处理：查找替换 + 智能删除 ==========
+        processBtn.onclick = () => {
+            let fullText = output.value;
+            let deletedModesCount = 0;
+
+            const modeRegex = /(^|[\r\n])\s*模式\s*\{/;
+            const modeMatch = fullText.match(modeRegex);
+
+            if (modeMatch) {
+                const modeStartAbsoluteIndex = modeMatch.index;
+                const braceOffset = modeMatch[0].lastIndexOf('{');
+                const modeOpenBraceIndex = modeStartAbsoluteIndex + braceOffset;
+
+                let balance = 1;
+                let modeCloseBraceIndex = -1;
+                for (let i = modeOpenBraceIndex + 1; i < fullText.length; i++) {
+                    if (fullText[i] === '{') balance++;
+                    else if (fullText[i] === '}') balance--;
+                    if (balance === 0) { modeCloseBraceIndex = i; break; }
                 }
 
-                // 5. 拼装回全文
-                fullText = textBefore + newBodyText + textAfter;
-            }
-        }
+                if (modeCloseBraceIndex !== -1) {
+                    const textBefore = fullText.substring(0, modeOpenBraceIndex + 1);
+                    const textAfter = fullText.substring(modeCloseBraceIndex);
+                    let bodyText = fullText.substring(modeOpenBraceIndex + 1, modeCloseBraceIndex);
+                    
+                    let newBodyText = "";
+                    let ptr = 0;
 
-        // --- STEP 2: 其他常规修复 (保留) ---
+                    while (ptr < bodyText.length) {
+                        const nextOpen = bodyText.indexOf('{', ptr);
+                        
+                        if (nextOpen === -1) {
+                            newBodyText += bodyText.substring(ptr);
+                            break;
+                        }
 
-        // 英雄禁用修正
-        const heroMatch = fullText.match(/英雄\s*\{/);
-        if (heroMatch) {
-            let start = heroMatch.index, braceCount = 0, started = false, end = -1;
-            for (let i = start; i < fullText.length; i++) {
-                if (fullText[i] === '{') { braceCount++; started = true; }
-                else if (fullText[i] === '}') { braceCount--; }
-                if (started && braceCount === 0) { end = i + 1; break; }
-            }
-            if (end !== -1) {
-                let heroBlock = fullText.substring(start, end);
-                heroBlock = heroBlock.replace(/: 禁用/g, ': 关闭');
-                fullText = fullText.substring(0, start) + heroBlock + fullText.substring(end);
-            }
-        }
+                        let subBalance = 1;
+                        let nextClose = -1;
+                        for (let j = nextOpen + 1; j < bodyText.length; j++) {
+                            if (bodyText[j] === '{') subBalance++;
+                            else if (bodyText[j] === '}') subBalance--;
+                            if (subBalance === 0) { nextClose = j; break; }
+                        }
 
-        // 动作 "无" 修正
-        const targetActions = [
-            "设置不可见", "开始治疗调整", "追踪全局变量频率", "追踪玩家变量频率",
-            "持续追踪全局变量", "持续追踪玩家变量", "创建进度条地图文本",
-            "创建地图文本", "创建进度条 HUD 文本", "创建 HUD 文本"
-        ];
-        const actionPatterns = targetActions.map(act => act.replace(/\s+/g, '\\s*')).join('|');
-        const mainRegex = new RegExp(`(${actionPatterns})\\s*([\\(（])`, 'g');
-        let resultText = "";
-        let lastIndex = 0;
-        let match;
+                        if (nextClose === -1) {
+                            newBodyText += bodyText.substring(ptr);
+                            break;
+                        }
 
-        while ((match = mainRegex.exec(fullText)) !== null) {
-            resultText += fullText.substring(lastIndex, match.index);
-            const currentActionName = match[1];
-            const startParamIndex = match.index + match[0].length; 
-            let balance = 1; let endParamIndex = -1;
-            for (let i = startParamIndex; i < fullText.length; i++) {
-                const char = fullText[i];
-                if (char === '(' || char === '（') balance++;
-                else if (char === ')' || char === '）') balance--;
-                if (balance === 0) { endParamIndex = i; break; }
-            }
-            if (endParamIndex !== -1) {
-                let params = fullText.substring(startParamIndex, endParamIndex);
-                params = params.replace(/([,，\s]|^)无([\s,，]|$)/g, "$1全部禁用$2");
-                resultText += `${currentActionName}(${params})`;
-                lastIndex = endParamIndex + 1;
-                mainRegex.lastIndex = lastIndex; 
-            } else {
-                resultText += match[0]; lastIndex = match.index + match[0].length;
-            }
-        }
-        resultText += fullText.substring(lastIndex);
+                        const preamble = bodyText.substring(ptr, nextOpen);
+                        const trimmedLabel = preamble.trim();
+                        const shouldDelete = /^禁用\s+.+/.test(trimmedLabel);
 
-        // 输出与反馈
-        output.value = resultText;
-        updateLineNumbers();
-        
-        let msg = "处理完成";
-        if (deletedModesCount > 0) msg += ` (删除了 ${deletedModesCount} 个模块)`;
-        setBtnFeedback(processBtn, "√ " + msg);
-    };
-
-    // ============================================
-    //       EXCEL 及其他辅助功能 (保持不变)
-    // ============================================
-
-    customRuleBtn.onclick = () => { excelInput.value = ""; excelInput.click(); };
-    excelInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        setBtnFeedback(customRuleBtn, "处理中...");
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, {type: 'array'});
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
-                let text = output.value;
-                let count = 0;
-                rows.forEach((row) => {
-                    if (row[0] && String(row[0]).trim() !== "" && row[1] !== undefined) {
-                        const target = String(row[0]).trim();
-                        const val = String(row[1]);
-                        const match = target.match(/^(.+?)\{(.+)\}$/);
-                        if (match) text = processScopedReplace(text, match[1].trim(), match[2], val);
-                        else text = text.split(target).join(val);
-                        count++;
+                        if (shouldDelete) {
+                            deletedModesCount++;
+                            ptr = nextClose + 1;
+                        } else {
+                            newBodyText += preamble;
+                            newBodyText += bodyText.substring(nextOpen, nextClose + 1);
+                            ptr = nextClose + 1;
+                        }
                     }
-                });
-                output.value = text;
-                updateLineNumbers();
-                setBtnFeedback(customRuleBtn, `应用${count}条Excel规则`);
-            } catch (err) { alert("Excel错误"); }
-        };
-        reader.readAsArrayBuffer(file);
-    });
 
-    function processScopedReplace(fullText, scopeKeyword, searchStr, replaceStr) {
-        let result = ""; let ptr = 0;
-        const regex = new RegExp(`${scopeKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`, 'g');
-        let match;
-        while ((match = regex.exec(fullText)) !== null) {
-            result += fullText.substring(ptr, match.index);
-            const start = match.index + match[0].length;
-            let bal = 1; let end = -1;
-            for (let i = start; i < fullText.length; i++) {
-                if (fullText[i] === '{') bal++;
-                else if (fullText[i] === '}') bal--;
-                if (bal === 0) { end = i; break; }
+                    fullText = textBefore + newBodyText + textAfter;
+                }
             }
-            if (end !== -1) {
-                result += match[0] + fullText.substring(start, end).split(searchStr).join(replaceStr) + "}";
-                ptr = end + 1; regex.lastIndex = ptr;
-            } else { result += match[0]; ptr = start; }
-        }
-        return result + fullText.substring(ptr);
-    }
 
-    function processModule(ft, n, r) {
-        const regex = new RegExp(`${n}\\s*\\{`, 'm');
-        const match = ft.match(regex);
-        if (!match) return ft;
-        let bal = 0, s = false, end = -1;
-        for (let i = match.index; i < ft.length; i++) {
-            if (ft[i] === '{') { bal++; s = true; }
-            else if (ft[i] === '}') { bal--; }
-            if (s && bal === 0) { end = i + 1; break; }
-        }
-        return end === -1 ? ft : ft.substring(0, match.index) + r + ft.substring(end);
-    }
+            // 英雄禁用修正
+            const heroMatch = fullText.match(/英雄\s*\{/);
+            if (heroMatch) {
+                let start = heroMatch.index, braceCount = 0, started = false, end = -1;
+                for (let i = start; i < fullText.length; i++) {
+                    if (fullText[i] === '{') { braceCount++; started = true; }
+                    else if (fullText[i] === '}') { braceCount--; }
+                    if (started && braceCount === 0) { end = i + 1; break; }
+                }
+                if (end !== -1) {
+                    let heroBlock = fullText.substring(start, end);
+                    heroBlock = heroBlock.replace(/: 禁用/g, ': 关闭');
+                    fullText = fullText.substring(0, start) + heroBlock + fullText.substring(end);
+                }
+            }
 
-    delLobbyBtn.onclick = () => { output.value = processModule(output.value, "大厅", ""); updateLineNumbers(); setBtnFeedback(delLobbyBtn, "已删除 √"); };
-    resetModeBtn.onclick = () => { 
-        output.value = processModule(output.value, "模式", `模式\n\t{\n\t\t突击模式\n\t\t{\n\t\t\t启用地图\n\t\t\t{\n\t\t\t\t地图工坊岛屿\n\t\t\t}\n\t\t}\n\t\t综合\n\t\t{\n\t\t\t英雄限制: 关闭\n\t\t\t复生时间: 30%\n\t\t}\n\t}`); 
-        updateLineNumbers(); setBtnFeedback(resetModeBtn, "已重置 √"); 
-    };
-    copyBtn.onclick = () => { output.select(); document.execCommand('copy'); setBtnFeedback(copyBtn, "已复制 √"); };
-    downloadBtn.onclick = () => { const b = new Blob([output.value], {type: 'text/plain'}); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = originalFileName; a.click(); setBtnFeedback(downloadBtn, "已下载 √"); };
-    function updateCursorInfo() { const p = output.selectionStart; const l = output.value.substring(0, p).split('\n'); statDetails.innerText = `行: ${l.length}, 列: ${l[l.length-1].length + 1}`; }
+            // 动作“无”修正
+            const targetActions = [
+                "设置不可见", "开始治疗调整", "追踪全局变量频率", "追踪玩家变量频率",
+                "持续追踪全局变量", "持续追踪玩家变量", "创建进度条地图文本",
+                "创建地图文本", "创建进度条 HUD 文本", "创建 HUD 文本"
+            ];
+            const actionPatterns = targetActions.map(act => act.replace(/\s+/g, '\\s*')).join('|');
+            const mainRegex = new RegExp(`(${actionPatterns})\\s*([\\(（])`, 'g');
+            let resultText = "";
+            let lastIndex = 0;
+            let match;
+
+            while ((match = mainRegex.exec(fullText)) !== null) {
+                resultText += fullText.substring(lastIndex, match.index);
+                const currentActionName = match[1];
+                const startParamIndex = match.index + match[0].length; 
+                let balance = 1; let endParamIndex = -1;
+                for (let i = startParamIndex; i < fullText.length; i++) {
+                    const char = fullText[i];
+                    if (char === '(' || char === '（') balance++;
+                    else if (char === ')' || char === '）') balance--;
+                    if (balance === 0) { endParamIndex = i; break; }
+                }
+                if (endParamIndex !== -1) {
+                    let params = fullText.substring(startParamIndex, endParamIndex);
+                    params = params.replace(/([,，\s]|^)无([\s,，]|$)/g, "$1全部禁用$2");
+                    resultText += `${currentActionName}(${params})`;
+                    lastIndex = endParamIndex + 1;
+                    mainRegex.lastIndex = lastIndex; 
+                } else {
+                    resultText += match[0]; lastIndex = match.index + match[0].length;
+                }
+            }
+            resultText += fullText.substring(lastIndex);
+
+            output.value = resultText;
+            updateLineNumbers();
+            
+            let msg = "处理完成";
+            if (deletedModesCount > 0) msg += ` (删除了 ${deletedModesCount} 个模块)`;
+            setBtnFeedback(processBtn, "✅ " + msg);
+        };
+
+        // ========== Excel 自定义规则（修复定时器冲突） ==========
+        customRuleBtn.onclick = () => { 
+            excelInput.value = ""; 
+            excelInput.click(); 
+        };
+
+        excelInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // 显示处理中状态
+            setBtnFeedback(customRuleBtn, "⏳ 处理中...");
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                    
+                    let text = output.value;
+                    let count = 0;
+                    
+                    rows.forEach((row) => {
+                        if (row[0] && String(row[0]).trim() !== "" && row[1] !== undefined) {
+                            const target = String(row[0]).trim();
+                            const val = String(row[1]);
+                            const match = target.match(/^(.+?)\{(.+)\}$/);
+                            if (match) {
+                                text = processScopedReplace(text, match[1].trim(), match[2], val);
+                            } else {
+                                text = text.split(target).join(val);
+                            }
+                            count++;
+                        }
+                    });
+                    
+                    output.value = text;
+                    updateLineNumbers();
+                    
+                    // 成功提示
+                    setBtnFeedback(customRuleBtn, `📋 应用 ${count} 条规则`);
+                } catch (err) {
+                    console.error("Excel处理错误:", err);
+                    alert("Excel 处理出错，请检查文件格式或控制台日志");
+                    setBtnFeedback(customRuleBtn, "❌ 处理失败");
+                }
+            };
+            
+            reader.onerror = function() {
+                alert("文件读取失败，请检查文件是否损坏");
+                setBtnFeedback(customRuleBtn, "❌ 读取失败");
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+
+        // 作用域替换辅助函数
+        function processScopedReplace(fullText, scopeKeyword, searchStr, replaceStr) {
+            let result = ""; 
+            let ptr = 0;
+            const escapedKeyword = scopeKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`${escapedKeyword}\\s*\\{`, 'g');
+            let match;
+            
+            while ((match = regex.exec(fullText)) !== null) {
+                result += fullText.substring(ptr, match.index);
+                const start = match.index + match[0].length;
+                let bal = 1; 
+                let end = -1;
+                for (let i = start; i < fullText.length; i++) {
+                    if (fullText[i] === '{') bal++;
+                    else if (fullText[i] === '}') bal--;
+                    if (bal === 0) { end = i; break; }
+                }
+                if (end !== -1) {
+                    result += match[0] + fullText.substring(start, end).split(searchStr).join(replaceStr) + "}";
+                    ptr = end + 1; 
+                    regex.lastIndex = ptr;
+                } else { 
+                    result += match[0]; 
+                    ptr = start; 
+                }
+            }
+            return result + fullText.substring(ptr);
+        }
+
+        // 通用模块处理
+        function processModule(ft, n, r) {
+            const regex = new RegExp(`${n}\\s*\\{`, 'm');
+            const match = ft.match(regex);
+            if (!match) return ft;
+            let bal = 0, s = false, end = -1;
+            for (let i = match.index; i < ft.length; i++) {
+                if (ft[i] === '{') { bal++; s = true; }
+                else if (ft[i] === '}') { bal--; }
+                if (s && bal === 0) { end = i + 1; break; }
+            }
+            return end === -1 ? ft : ft.substring(0, match.index) + r + ft.substring(end);
+        }
+
+        delLobbyBtn.onclick = () => { 
+            output.value = processModule(output.value, "大厅", ""); 
+            updateLineNumbers(); 
+            setBtnFeedback(delLobbyBtn, "🗑️ 已删除"); 
+        };
+        
+        resetModeBtn.onclick = () => { 
+            output.value = processModule(output.value, "模式", `模式\n\t{\n\t\t突击模式\n\t\t{\n\t\t\t启用地图\n\t\t\t{\n\t\t\t\t地图工坊岛屿\n\t\t\t}\n\t\t}\n\t\t综合\n\t\t{\n\t\t\t英雄限制: 关闭\n\t\t\t复生时间: 30%\n\t\t}\n\t}`); 
+            updateLineNumbers(); 
+            setBtnFeedback(resetModeBtn, "🔄 已重置"); 
+        };
+        
+        copyBtn.onclick = () => { 
+            output.select(); 
+            document.execCommand('copy'); 
+            setBtnFeedback(copyBtn, "📋 已复制"); 
+        };
+        
+        downloadBtn.onclick = () => { 
+            const b = new Blob([output.value], {type: 'text/plain'}); 
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(b); 
+            a.download = originalFileName; 
+            a.click(); 
+            setBtnFeedback(downloadBtn, "💾 已下载"); 
+        };
+        
+        function updateCursorInfo() { 
+            const p = output.selectionStart; 
+            const l = output.value.substring(0, p).split('\n'); 
+            statDetails.innerText = `📍 行: ${l.length}, 列: ${l[l.length-1].length + 1}`; 
+        }
+
+        // 初始化行号
+        updateLineNumbers();
+    })();
 </script>
 </body>
 </html>
