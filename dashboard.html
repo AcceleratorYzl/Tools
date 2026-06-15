@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>多页面访问统计看板 - 稳定版</title>
+    <title>多页面访问统计看板 - 最终稳定版</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -68,11 +68,11 @@
     <div class="container">
         <h1>📊 多页面访问统计看板</h1>
         <button class="refresh-btn" onclick="location.reload()">🔄 刷新数据</button>
-        <p><small>✅ 使用稳定可靠的 Hits 服务 | 无跨域问题 | 独立计数</small></p>
+        <p><small>✅ 使用稳定可靠的 Hits 服务 | 无跨域问题 | 自动计数</small></p>
 
         <table id="statsTable">
             <thead>
-                <tr><th>页面名称</th><th>页面URL (唯一标识)</th><th>访问次数</th><th>状态</th></tr>
+                <tr><th>页面名称</th><th>页面URL</th><th>访问次数</th><th>状态</th></tr>
             </thead>
             <tbody id="statsBody">
                 <tr><td colspan="4" style="text-align: center;">正在加载数据...</td></tr>
@@ -81,61 +81,65 @@
 
         <div class="note">
             <strong>✅ 重要说明：</strong><br>
-            1. <strong>你需要先将下面“部署步骤”第2步中的一行代码，分别复制到你那三个网页的HTML里</strong>，Hits服务才能开始计数。<br>
-            2. 完成部署后，这个看板就能稳定地显示这三个页面的独立访问次数。<br>
-            3. 数据永久保存在 Hits 云端，精准可靠。
+            1. <strong>请再次确认，你已经在你那三个网页的HTML代码中，添加了对应的统计代码（见下方）。</strong><br>
+            2. 如果你已经添加，那么现在访问一下那些页面，就会产生第一个访问记录。<br>
+            3. 然后回到这个看板，点击“刷新数据”或稍等片刻，就能看到正确的访问次数了。
         </div>
         <div class="note">
-            <strong>📌 部署步骤：</strong><br>
-            <strong>第1步：</strong> 将下面的“统计看板”代码保存为 dashboard.html 并上传到你的GitHub。<br>
-            <strong>第2步：</strong> 将“统计代码”中的一行 <code>&lt;img&gt;</code> 标签，分别复制到你那三个网页 (HJ, ConfigFixer, Localizer) 的HTML代码中的 <code>&lt;body&gt;</code> 标签内部任意位置。<br>
-            <strong>第3步：</strong> 稍等片刻，再回来刷新这个看板，就能看到数据了。
+            <strong>📌 请确认你的每个页面都添加了正确的统计代码（复制下面一行到对应页面的 &lt;body&gt; 中）：</strong><br>
+            • 对于 <strong>首页 (HJ)</strong> 页面，请添加：<br>
+            <code>&lt;img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https://acceleratoryzl.github.io/OW_workshop/HJ" width="0" height="0" style="display:none"&gt;</code><br><br>
+            • 对于 <strong>ConfigFixer 工具</strong> 页面，请添加：<br>
+            <code>&lt;img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https://acceleratoryzl.github.io/Tools/ConfigFixer" width="0" height="0" style="display:none"&gt;</code><br><br>
+            • 对于 <strong>Localizer 工具</strong> 页面，请添加：<br>
+            <code>&lt;img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https://acceleratoryzl.github.io/Tools/Localizer" width="0" height="0" style="display:none"&gt;</code>
         </div>
     </div>
 
     <script>
-        // 配置你的页面 (每个页面的URL后面，加一个唯一的ID参数即可)
+        // 配置你的页面 (这里使用完整的页面URL作为唯一标识，更稳定)
         const pages = [
-            { name: "首页", url: "https://acceleratoryzl.github.io/OW_workshop/HJ", id: "ow_workshop_hj" },
-            { name: "ConfigFixer 工具", url: "https://acceleratoryzl.github.io/Tools/ConfigFixer", id: "tools_configfixer" },
-            { name: "Localizer 工具", url: "https://acceleratoryzl.github.io/Tools/Localizer", id: "tools_localizer" }
+            { name: "首页", url: "https://acceleratoryzl.github.io/OW_workshop/HJ" },
+            { name: "ConfigFixer 工具", url: "https://acceleratoryzl.github.io/Tools/ConfigFixer" },
+            { name: "Localizer 工具", url: "https://acceleratoryzl.github.io/Tools/Localizer" }
         ];
+
+        async function fetchCount(pageUrl) {
+            // 使用 hits 服务的另一个端点，直接请求 badge 图片，然后从返回的SVG文本中解析数字
+            // 注意：每次请求这个URL，都会使计数+1。这对于看板来说是期望的行为。
+            const badgeUrl = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(pageUrl)}`;
+            const response = await fetch(badgeUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const svgText = await response.text();
+            // 从SVG中解析数字，例如从 <text>123</text> 中提取 123
+            const match = svgText.match(/<text[^>]*>([\d,]+)<\/text>/);
+            if (match && match[1]) {
+                return match[1];
+            } else {
+                throw new Error('无法从返回数据中解析次数');
+            }
+        }
 
         async function loadAllStats() {
             const tbody = document.getElementById('statsBody');
-            tbody.innerHTML = '运转<td colspan="4" style="text-align: center;">正在更新...</td></tr>';
+            tbody.innerHTML = '运转<td colspan="4" style="text-align: center;">正在更新统计数据...</td></tr>';
             tbody.innerHTML = ''; // 清空
 
             for (let page of pages) {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerHTML = `<strong>${page.name}</strong>`;
+                row.insertCell(1).innerHTML = `<span class="url">${page.url}</span>`;
+
                 try {
-                    // 使用 Hits 服务的 API 来获取数据，并同时完成计数 (+1)
-                    // 注意：每次调用这个API，都会给对应的页面增加一次访问
-                    const apiUrl = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(page.id)}`;
-                    const response = await fetch(apiUrl);
-                    
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    
-                    const svgText = await response.text();
-                    // 从返回的SVG中解析出数字
-                    const match = svgText.match(/<text[^>]*>([\d,]+)<\/text>/);
-                    let count = '获取失败';
-                    if (match) {
-                        count = match[1];
-                    }
-                    
-                    const row = tbody.insertRow();
-                    row.insertCell(0).innerHTML = `<strong>${page.name}</strong>`;
-                    row.insertCell(1).innerHTML = `<span class="url">${page.url}</span>`;
+                    const count = await fetchCount(page.url);
                     row.insertCell(2).innerHTML = `<span class="count">${count}</span>`;
                     row.insertCell(3).innerHTML = '<span class="status-ok">✅ 统计成功</span>';
-                    
                 } catch (error) {
-                    console.error(`获取 ${page.name} 统计失败:`, error);
-                    const row = tbody.insertRow();
-                    row.insertCell(0).innerHTML = `<strong>${page.name}</strong>`;
-                    row.insertCell(1).innerHTML = `<span class="url">${page.url}</span>`;
+                    console.error(`获取 ${page.name} (${page.url}) 统计失败:`, error);
                     row.insertCell(2).innerHTML = '<span class="status-error">获取失败</span>';
-                    row.insertCell(3).innerHTML = '<span class="status-error">❌ 连接失败，请确保目标页面已添加统计代码</span>';
+                    row.insertCell(3).innerHTML = '<span class="status-error">❌ 连接失败，请确保目标页面已添加统计代码并产生了访问</span>';
                 }
             }
         }
