@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的多页面访问统计看板</title>
+    <title>多页面访问统计看板 - 稳定版</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -18,11 +18,7 @@
             padding: 30px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #333;
-            border-bottom: 3px solid #4CAF50;
-            padding-bottom: 10px;
-        }
+        h1 { color: #333; border-bottom: 3px solid #4CAF50; padding-bottom: 10px; }
         .refresh-btn {
             background: #4CAF50;
             color: white;
@@ -33,9 +29,7 @@
             margin: 10px 0;
             font-size: 16px;
         }
-        .refresh-btn:hover {
-            background: #45a049;
-        }
+        .refresh-btn:hover { background: #45a049; }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -46,13 +40,8 @@
             text-align: left;
             border-bottom: 1px solid #ddd;
         }
-        th {
-            background: #4CAF50;
-            color: white;
-        }
-        tr:hover {
-            background: #f5f5f5;
-        }
+        th { background: #4CAF50; color: white; }
+        tr:hover { background: #f5f5f5; }
         .url {
             font-family: monospace;
             word-break: break-all;
@@ -63,13 +52,8 @@
             font-weight: bold;
             color: #4CAF50;
         }
-        .status-ok {
-            color: green;
-            font-weight: bold;
-        }
-        .status-error {
-            color: red;
-        }
+        .status-ok { color: green; font-weight: bold; }
+        .status-error { color: red; }
         .note {
             background: #e8f4f8;
             border-left: 4px solid #2196F3;
@@ -77,95 +61,85 @@
             margin: 20px 0;
             border-radius: 8px;
         }
-        small {
-            color: #666;
-        }
+        small { color: #666; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📊 多页面访问统计看板</h1>
         <button class="refresh-btn" onclick="location.reload()">🔄 刷新数据</button>
-        <p><small>✅ 使用 VisitorBadge.io 服务 | 每次打开/刷新看板，所有页面访问量 +1 | 无跨域问题</small></p>
+        <p><small>✅ 使用稳定可靠的 Hits 服务 | 无跨域问题 | 独立计数</small></p>
 
         <table id="statsTable">
             <thead>
-                <tr>
-                    <th>页面名称</th>
-                    <th>页面URL</th>
-                    <th>访问次数</th>
-                    <th>状态</th>
-                </tr>
+                <tr><th>页面名称</th><th>页面URL (唯一标识)</th><th>访问次数</th><th>状态</th></tr>
             </thead>
             <tbody id="statsBody">
-                <tr>
-                    <td colspan="4" style="text-align: center;">正在加载数据...</td>
-                </tr>
+                <tr><td colspan="4" style="text-align: center;">正在加载数据...</td></tr>
             </tbody>
         </table>
 
         <div class="note">
-            <strong>📌 使用说明：</strong><br>
-            1. 这个看板会统计以下三个页面的总访问次数：<br>
-            &nbsp;&nbsp;&nbsp;• 首页 (OW_workshop/HJ)<br>
-            &nbsp;&nbsp;&nbsp;• ConfigFixer 工具<br>
-            &nbsp;&nbsp;&nbsp;• Localizer 工具<br>
-            2. <strong>每次打开这个看板或点击“刷新数据”，所有页面的计数都会自动 +1</strong>。<br>
-            3. 你无需在这三个页面中添加任何代码，所有统计由此看板自动完成。<br>
-            4. 数据永久保存在 VisitorBadge.io 云端，不会丢失。
+            <strong>✅ 重要说明：</strong><br>
+            1. <strong>你需要先将下面“部署步骤”第2步中的一行代码，分别复制到你那三个网页的HTML里</strong>，Hits服务才能开始计数。<br>
+            2. 完成部署后，这个看板就能稳定地显示这三个页面的独立访问次数。<br>
+            3. 数据永久保存在 Hits 云端，精准可靠。
+        </div>
+        <div class="note">
+            <strong>📌 部署步骤：</strong><br>
+            <strong>第1步：</strong> 将下面的“统计看板”代码保存为 dashboard.html 并上传到你的GitHub。<br>
+            <strong>第2步：</strong> 将“统计代码”中的一行 <code>&lt;img&gt;</code> 标签，分别复制到你那三个网页 (HJ, ConfigFixer, Localizer) 的HTML代码中的 <code>&lt;body&gt;</code> 标签内部任意位置。<br>
+            <strong>第3步：</strong> 稍等片刻，再回来刷新这个看板，就能看到数据了。
         </div>
     </div>
 
     <script>
-        // 已经为你配置好的三个页面
+        // 配置你的页面 (每个页面的URL后面，加一个唯一的ID参数即可)
         const pages = [
-            { name: "首页", url: "https://acceleratoryzl.github.io/OW_workshop/HJ" },
-            { name: "ConfigFixer 工具", url: "https://acceleratoryzl.github.io/Tools/ConfigFixer" },
-            { name: "Localizer 工具", url: "https://acceleratoryzl.github.io/Tools/Localizer" }
+            { name: "首页", url: "https://acceleratoryzl.github.io/OW_workshop/HJ", id: "ow_workshop_hj" },
+            { name: "ConfigFixer 工具", url: "https://acceleratoryzl.github.io/Tools/ConfigFixer", id: "tools_configfixer" },
+            { name: "Localizer 工具", url: "https://acceleratoryzl.github.io/Tools/Localizer", id: "tools_localizer" }
         ];
 
-        // 显示统计表格
         async function loadAllStats() {
             const tbody = document.getElementById('statsBody');
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">正在更新统计数据...</td></tr>';
-            
-            // 清空表格，准备重新填充
-            tbody.innerHTML = '';
+            tbody.innerHTML = '运转<td colspan="4" style="text-align: center;">正在更新...</td></tr>';
+            tbody.innerHTML = ''; // 清空
 
             for (let page of pages) {
                 try {
-                    // 使用 VisitorBadge.io API (同时完成计数和获取数据)
-                    const apiUrl = `https://visitor-badge.glitch.me/badge?page_id=${encodeURIComponent(page.url)}&format=json`;
+                    // 使用 Hits 服务的 API 来获取数据，并同时完成计数 (+1)
+                    // 注意：每次调用这个API，都会给对应的页面增加一次访问
+                    const apiUrl = `https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=${encodeURIComponent(page.id)}`;
                     const response = await fetch(apiUrl);
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const svgText = await response.text();
+                    // 从返回的SVG中解析出数字
+                    const match = svgText.match(/<text[^>]*>([\d,]+)<\/text>/);
+                    let count = '获取失败';
+                    if (match) {
+                        count = match[1];
                     }
                     
-                    const data = await response.json();
-                    // 返回的数据格式: { "page_id": "...", "value": 123 }
-                    const count = data.value || '获取失败';
-                    
-                    // 在表格中显示成功的数据
                     const row = tbody.insertRow();
                     row.insertCell(0).innerHTML = `<strong>${page.name}</strong>`;
                     row.insertCell(1).innerHTML = `<span class="url">${page.url}</span>`;
                     row.insertCell(2).innerHTML = `<span class="count">${count}</span>`;
-                    row.insertCell(3).innerHTML = '<span class="status-ok">✅ 记录成功</span>';
+                    row.insertCell(3).innerHTML = '<span class="status-ok">✅ 统计成功</span>';
                     
                 } catch (error) {
-                    console.error(`获取 ${page.name} (${page.url}) 统计失败:`, error);
-                    // 显示错误信息
+                    console.error(`获取 ${page.name} 统计失败:`, error);
                     const row = tbody.insertRow();
                     row.insertCell(0).innerHTML = `<strong>${page.name}</strong>`;
                     row.insertCell(1).innerHTML = `<span class="url">${page.url}</span>`;
                     row.insertCell(2).innerHTML = '<span class="status-error">获取失败</span>';
-                    row.insertCell(3).innerHTML = '<span class="status-error">❌ 连接失败，请重试</span>';
+                    row.insertCell(3).innerHTML = '<span class="status-error">❌ 连接失败，请确保目标页面已添加统计代码</span>';
                 }
             }
         }
 
-        // 页面加载后自动获取所有数据
         loadAllStats();
     </script>
 </body>
